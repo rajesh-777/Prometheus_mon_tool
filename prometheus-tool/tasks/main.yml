@@ -1,0 +1,72 @@
+---
+# tasks file for prometheus-tool
+- hosts : monitor
+  - name: Install Pre-req package 
+    yum: 
+      name: "{{ item }}" 
+      state: present 
+    with_item: 
+      - wget
+      - tar
+      - curl
+      - vim
+    register: pre_req_tools
+
+
+  - name: Create prometheus user 
+    user: name={{ prometh_user }}
+          state=present 
+          shell="/bin/bash" 
+    group: name={{ prometh_user_group }}
+          state=present 
+    register: prmoeth_user
+
+  - name: Create requried directory strucute for tool
+    file: 
+      path={{ prometh_dir }}
+      state=directory
+      onwer={{ prometh_user }}
+      group={{ prometh_user_group }}
+      mode=0755
+     register: prometh_dir_strc
+
+  - name: Downlaod prometheus tar package 
+   
+    get_url:
+      url="https://github.com/prometheus/prometheus/releases/download/v2.0.0/prometheus-2.0.0.linux-amd64.tar.gz" dest={{ prometh_dir }}
+    register: premoth_pkg_downlaod
+
+  - name: Unpack tar pacakge on host
+    - name: Untar tar file now on remote server 
+      unarchive:
+        src="{{ prometh_dir }}/prometheus-2.0.0.linux-amd64.tar.gz"
+        dest={{ prometh_dir }}
+
+  - name: Verify prometheus file exit 
+    commnad: ls -ld {{ prometh_dir }}/prometheus-2.0.0.linux-amd64/prometheus
+    register: prometh_ver_file
+
+  - debug:
+    var: prometh_ver_file.stdout
+
+  
+
+  - name: Verify the installation by prometheus -version 
+    shell: {{ prometh_dir }}/prometheus-2.0.0.linux-amd64/prometheus -version 
+    register: prometh_version
+
+  - debug: 
+    var: prometh_version.stdout 
+  
+   
+  
+
+
+
+
+
+
+
+
+
+
