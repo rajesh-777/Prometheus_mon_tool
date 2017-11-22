@@ -1,72 +1,79 @@
 ---
 # tasks file for prometheus-tool
-- hosts : monitor
-  - name: Install Pre-req package 
-    yum: 
-      name: "{{ item }}" 
-      state: present 
-    with_item: 
-      - wget
-      - tar
-      - curl
-      - vim
-    register: pre_req_tools
+- hosts: all
+  vars:
+    prometh_user: prometheus
+    prometh_user_group: prometheus
+    prometh_dir: /prometheus
+    prometh_node_dir: /prometheus/node_exporter
+  tasks:
+  - name: Create prometheus user and group
+    user:
+      name: "{{ prometh_user }}"
+#      group: "{{ prometh_user }}"
+      shell: /sbin/nologin
+      comment: "Prometheus User"
+      state: present
 
+  - name: Create  app dir structure
+    file:
+      path: "{{ item }}"
+      state: directory
+      owner: "{{ prometh_user }}"
+#      group: "{{ prometh_user_group }}"
+      mode: 0755
+    with_items:
+     - /prometheus 
+     - /prometheus/node_exporter
+#    notify: some_handler
+#    register: some_handler
 
-  - name: Create prometheus user 
-    user: name={{ prometh_user }}
-          state=present 
-          shell="/bin/bash" 
-    group: name={{ prometh_user_group }}
-          state=present 
-    register: prmoeth_user
-
-  - name: Create requried directory strucute for tool
-    file: 
-      path={{ prometh_dir }}
-      state=directory
-      onwer={{ prometh_user }}
-      group={{ prometh_user_group }}
-      mode=0755
-     register: prometh_dir_strc
 
   - name: Downlaod prometheus tar package 
-   
     get_url:
-      url="https://github.com/prometheus/prometheus/releases/download/v2.0.0/prometheus-2.0.0.linux-amd64.tar.gz" dest={{ prometh_dir }}
+      url: "https://github.com/prometheus/prometheus/releases/download/v2.0.0/prometheus-2.0.0.linux-amd64.tar.gz" 
+      dest: "{{ prometh_dir }}" 
     register: premoth_pkg_downlaod
 
-  - name: Unpack tar pacakge on host
-    - name: Untar tar file now on remote server 
-      unarchive:
-        src="{{ prometh_dir }}/prometheus-2.0.0.linux-amd64.tar.gz"
-        dest={{ prometh_dir }}
+  - name: Unpack main tar pacakge on host
+    unarchive:
+      src="{{ prometh_dir }}/prometheus-2.0.0.linux-amd64.tar.gz"
+      dest={{ prometh_dir }}
 
-  - name: Verify prometheus file exit 
-    commnad: ls -ld {{ prometh_dir }}/prometheus-2.0.0.linux-amd64/prometheus
-    register: prometh_ver_file
-
-  - debug:
-    var: prometh_ver_file.stdout
-
-  
 
   - name: Verify the installation by prometheus -version 
-    shell: {{ prometh_dir }}/prometheus-2.0.0.linux-amd64/prometheus -version 
+#    shell: ls -ld "{{ prometh_dir }}/prometheus-2.0.0.linux-amd64/prometheus"
+    shell: /prometheus/prometheus-2.0.0.linux-amd64/prometheus --version
     register: prometh_version
 
-  - debug: 
-    var: prometh_version.stdout 
-  
-   
-  
+  - name: Print prometheus version
+    debug:
+      msg: "Prometheus Version: {{ prometh_version.stdout }}"
 
+  - name: Downlaod prometheus node tar package
+    get_url:
+      url: "https://github.com/prometheus/node_exporter/releases/download/v0.15.1/node_exporter-0.15.1.linux-amd64.tar.gz"
+      dest: "{{ prometh_node_dir }}"
+    register: premoth_node_pkg_downlaod
 
+  - name: Unpack node client tar pacakge on host
+    unarchive:
+      src="{{ prometh_dir }}/node_exporter/node_exporter-0.15.1.linux-amd64.tar.gz"
+      dest={{ prometh_node_dir }}
 
+  - copy:
+      src: /tmp/node_exporter.service
+      dest: /etc/systemd/system/node_exporter.service
+      owner: root
+      group: root
+      mode: 0755
 
+#  - copy:
+#      src: /tmp/prometheus.yml
+#      dest: "{{ prometh_node_dir }}/prometheus-2.0.0linux-amd64/prometheus.yml"
+#      mode: 0755
 
+  - name: Start serive on node
+    shell: systemctl start  node_exporter.service
 
-
-
-
-
+#Some task still manual take care of them for this to work 
